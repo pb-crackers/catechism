@@ -3,3 +3,4 @@
 /testsearch.py
 /testembedding.pdf
 /.DS_Store
+/__pycache__/

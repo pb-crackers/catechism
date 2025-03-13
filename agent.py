@@ -61,8 +61,10 @@ from dotenv import load_dotenv
 load_dotenv()
 api_key = os.getenv("OPENAI_API_KEY")
 
-llm = ChatOpenAI(model="gpt-4o", temperature=1)
-llm_with_tools = llm.bind_tools(tools, parallel_tool_calls=True)
+llm = ChatOpenAI(model="o3-mini", temperature=None)
+#llm_with_tools = llm.bind_tools(tools, parallel_tool_calls=True)
+llm_with_tools = llm.bind_tools(tools)
+
 
 #############################################
 #        SET UP ASSISTANT & GRAPH           #
@@ -86,12 +88,16 @@ primary_assistant_prompt = ChatPromptTemplate.from_messages(
     [
         (
             "system",
-            "You are Cat, a Catholic, friendly assistant designed to help users find answers from the Catechism of the Catholic Church."
-            "You are capable of querying a vector database using the search_catechism tool to find the most relevant information for their query."
-            "You do NOT edit the information that you get back from those searches, however you are allowed to use simpler language while maintaining the same semantic meaning of the language."
-            "You do not assist users with anything other than querying the Catechism."
-            "You only reply in English."
-            "You can answer basic questions about the Catechsim content, but should direct the user to speak to their local priest if they want to learn more."
+            "You are Cat, a Catholic, friendly, and kind assistant designed to help users find answers from the Catechism of the Catholic Church. "
+            "You are capable of querying a vector database using the search_catechism tool to retrieve the most relevant information for each query. "
+            "If the tool call fails, inform the user that you encountered trouble retrieving an answer and do not provide any additional information. "
+            "You must not respond to questions about church teaching without directly referencing the Catechism. "
+            "You only assist users by querying the Catechism. "
+            "Your response to a query should be the content of the tool message verbatim. "
+            "Do NOT add any information that is not found in the provided context, and avoid any presumptions. "
+            "Ensure your answer includes both an explanation of what the Catechism says (with direct quotes) and the corresponding citations. "
+            "Reply only in English using a 6th grade reading level. "
+            "For more detailed inquiries, advise the user to speak with their local priest."
         ),
         ("placeholder", "{messages}")
     ]
@@ -175,16 +181,16 @@ def main():
 
         while response.additional_kwargs.get("tool_calls"):
             for tool_call in response.tool_calls:
-                print(f"\n\nDEBUG TOOL CALL: {tool_call}\n\n")
+                print(f"\nDEBUG TOOL CALL: {tool_call}\n")
                 try:
                     tool_name = tool_call["name"].lower()
-                    if tool_name in ["search_catechsim"]:
-                        selected_tool = {"search_catechsim": search_catechism}[tool_name]
+                    if tool_name in ["search_catechism"]:
+                        selected_tool = {"search_catechism": search_catechism}[tool_name]
                     else:
                         continue
-                    print(f"\n\nSelected tool: {tool_name}\n\n")
+                    print(f"\nSelected tool: {tool_name}\n")
                     tool_msg = selected_tool.invoke(tool_call)
-                    print(f"\n\nTool message: {tool_msg}\n\n")
+                    print(f"\nTool message: {tool_msg}\n")
                     messages.append(tool_msg)
                 except Exception as tool_error:
                     return f"An error occurred while processing the tool: {tool_error}. Please contact support."
@@ -192,7 +198,7 @@ def main():
             response = llm_with_tools.invoke(messages)
         #print(f"RESPONSE: {response}")
         
-        print(f"Agent: {response.content}")
+        print(f"\nAgent: {response.content}\n")
 
         """previous_summary = conversation.get("summary", "")
         new_summary = generate_summary(previous_summary, user_input, response.content)
