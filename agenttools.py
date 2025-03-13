@@ -165,9 +165,9 @@ def search_catechism(input_text: str) -> str:
         print("Failed to format the search results of the query.")
         return
 
-    answer = answer_question(llm_question, formatted)
+    """answer = answer_question(llm_question, formatted)
     if not answer:
         print("Failed to formulate an answer to the question.")
-        return
+        return"""
 
-    return answer
+    return formatted

@@ -61,7 +61,7 @@ from dotenv import load_dotenv
 load_dotenv()
 api_key = os.getenv("OPENAI_API_KEY")
 
-llm = ChatOpenAI(model="o3-mini", temperature=None)
+llm = ChatOpenAI(model="o3-mini", temperature=1)
 #llm_with_tools = llm.bind_tools(tools, parallel_tool_calls=True)
 llm_with_tools = llm.bind_tools(tools)
 
@@ -70,7 +70,7 @@ llm_with_tools = llm.bind_tools(tools)
 #        SET UP ASSISTANT & GRAPH           #
 #############################################
 from langchain_core.runnables import Runnable, RunnableConfig
-from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.prompts import ChatPromptTemplate, PromptTemplate
 from langgraph.graph import StateGraph, START, END
 from langgraph.graph import MessagesState
 from langgraph.prebuilt import ToolNode, tools_condition
@@ -148,7 +148,6 @@ def generate_summary(existing_summary: str, user_input: str, assistant_response:
     summary_response = llm.invoke([HumanMessage(summary_prompt)])
     return summary_response.content.strip()
 
-
 def main():
     print("Interactive mode. Type 'quit', 'exit', or 'q' to stop.")
     while True:
@@ -174,9 +173,7 @@ def main():
 
         response = assistant_runnable.invoke({"messages": messages})
         #print(f"\n\nRESPONSE: {response}\n\n")
-        messages.append(response)
-
-        # example message for testing: hi there can you get me the flip profit and net brrr on a deal with a price of 70k, a arv of 160k, and a rehab budget of 40k
+        messages.append(response) #! note: this step is required because it ensures the agent uses the tool
 
 
         while response.additional_kwargs.get("tool_calls"):
@@ -195,7 +192,11 @@ def main():
                 except Exception as tool_error:
                     return f"An error occurred while processing the tool: {tool_error}. Please contact support."
             #print(messages)
-            response = llm_with_tools.invoke(messages)
+            response = llm_with_tools.invoke(messages, config={"prompt": "Answer the query utilizing the Catechism context retrieved from the database."
+                " Your answer should be written in common language at a 7th grade reading level so that general audiences can understand while maintaining the semantic meaning of the context."
+                " Do NOT add any information that you do not find in the provided context."
+                " Your response should only be based on the context and should not include presumptions."
+                " Your responses to questions should include both an explanation of what the Catechism says while using direct quotes and the citations to support your explanation."})
         #print(f"RESPONSE: {response}")
         
         print(f"\nAgent: {response.content}\n")
