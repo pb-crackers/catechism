@@ -24,14 +24,13 @@ def search_catechism(input_text: str) -> str:
     """
     This tool takes the entire user's input and performs a semantic search to find relevant information from the Catechism to answer the question.
     """
-    print("\nSearching the Catechsim via the tool...\n")
+    print("\nSearching the Catechism...\n")
     
     def improve_question(text: str) -> str:
         """
         let's rewrite the input using an LLM that will think with RAG in mind to improve our semantic search results.
         """
         try:
-            print(f"\nUsing an LLM to improve the query...\n")
             llm = ChatOpenAI(model="o3-mini", temperature=1)
             prompt_template = PromptTemplate(
                 input_variables=['input_text'],
@@ -57,7 +56,6 @@ def search_catechism(input_text: str) -> str:
         Generate a vector embedding for the given text using OpenAI's model.
         """
         try:
-            print(f"\nGetting the embedding for the improved user query...\n")
             response = open_ai_client.embeddings.create(
                 model="text-embedding-3-small",
                 input=text
@@ -82,7 +80,6 @@ def search_catechism(input_text: str) -> str:
         Make sure that you have created the stored procedure in Supabase.
         """
         try:
-            print(f"\nPerforming a semantic search on the query via Supabase...\n")
             vector_literal = format_vector_literal(query_embedding)
 
             response = supabase.rpc(
