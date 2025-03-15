@@ -174,7 +174,7 @@ def main():
                 " Your answer should be written in common language at a 7th grade reading level so that general audiences can understand while maintaining the semantic meaning of the context."
                 " Do NOT add any information that you do not find in the provided context."
                 " Your response should only be based on the context and should not include presumptions."
-                " Your responses to questions should include both an explanation of what the Catechism says while using direct quotes and the citations to support your explanation."})
+                " Your responses to questions MUST include both an explanation of what the Catechism says while using direct quotes and the citations to support your explanation."})
         
         print(f"\nAgent: {response.content}\n")
 

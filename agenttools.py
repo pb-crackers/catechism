@@ -66,7 +66,6 @@ def search_catechism(input_text: str) -> str:
             return []
         
     def format_vector_literal(embedding: list) -> str:
-        print(f"\nFormatting the vector literal...\n")
         # Convert the list of floats into a string like "[0.1, 0.2, ...]"
         return "[" + ", ".join(map(str, embedding)) + "]"
         
