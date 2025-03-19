@@ -1,10 +1,13 @@
 import os
+from pydantic import BaseModel, Field
 from dotenv import load_dotenv
 from openai import OpenAI
 from supabase import create_client, Client
 from langchain_openai import ChatOpenAI
 from langchain.prompts import PromptTemplate
 from langchain.tools import Tool, tool
+
+import time
 
 # Load credentials from environment variables
 load_dotenv()
@@ -16,6 +19,15 @@ SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 # Initialize the open AI client
 open_ai_client = OpenAI(api_key=OPENAI_API_KEY)
+
+llm = ChatOpenAI(model="o3-mini", temperature=1)
+
+#? trying to define a class to structure the output more for the response
+class CatechismOutput(BaseModel):
+    answer: str = Field(description="The answer to the user's question")
+    citations: str = Field(description="The citations of where in the Catechism the answers came from")
+
+structured_llm_answerer = llm.with_structured_output(CatechismOutput)
 
 
 #! tool declaration contains the same functions as the main script which can be used in testing
@@ -113,10 +125,8 @@ def search_catechism(input_text: str) -> str:
         rerun the LLM with the context from RAG to answer the question
         """
         try:
-            print(f"\nAnswering the user's question with the context...\n")
             context = rag_context["rag_context"]
 
-            llm = ChatOpenAI(model="o3-mini", temperature=1)
             prompt_template = PromptTemplate(
                 input_variables=['llm_question','rag_context'],
                 template="""
@@ -131,39 +141,55 @@ def search_catechism(input_text: str) -> str:
                 """
             )
             prompt = prompt_template.format(llm_question=llm_question, rag_context=context)
-            response = llm.invoke(prompt)
+            answer = structured_llm_answerer.invoke(prompt)
+            #response = structured_llm_answerer.invoke(answer.content)
             # print(f"\n\nDEBUG LLM REFORMATED Q: {response.content}\n\n")
-            return response.content
+            return answer
         except Exception as e:
             print(f"Error answering the question with the llm: {e}")
             return []
-    
+    #! this takes about 4 seconds
+    """llm_reword_start = time.time()
     llm_question = improve_question(input_text)
+    llm_reword_end = time.time()
     if not llm_question:
         print("Failed to generate an LLM version of the question.")
-        return
+        return"""
     
+    embed_query_start = time.time()
     # Vectorize the user query
-    query_embedding = get_embedding(llm_question)
+    query_embedding = get_embedding(input_text)
+    embed_query_end = time.time()
     if not query_embedding:
         print("Failed to generate query embedding.")
         return
     
+    semantic_search_start = time.time()
     # Perform semantic search against the vectors in Supabase
     results = semantic_search(query_embedding, top_k=3)
+    semantic_search_end = time.time()
     if not results:
         print("No relevant results found.")
         return
     
     # Format the results as required
+    format_results_start = time.time()
     formatted = format_search_results(results)
+    format_results_end = time.time()
     if not formatted:
         print("Failed to format the search results of the query.")
         return
-
-    """answer = answer_question(llm_question, formatted)
+    #! this takes anywhere from 10 seconds to 30.... why
+    answer_question_start = time.time()
+    answer = answer_question(input_text, formatted)
+    answer_question_end = time.time()
+    #print(f"\n\nSTRUCTURED OUTPUT of TOOL: {answer}")
     if not answer:
         print("Failed to formulate an answer to the question.")
-        return"""
-
-    return formatted
+        return
+    #print(f"\nTime for LLM reword of Q = {llm_reword_end - llm_reword_start:.2f}")
+    print(f"Time to Embed the Query = {embed_query_end - embed_query_start:.2f}")
+    print(f"Time to Semantic Search = {semantic_search_end - semantic_search_start:.2f}")
+    print(f"Time to format results = {format_results_end - format_results_start:.2f}")
+    print(f"Time to Answer the Q = {answer_question_end - answer_question_start:.2f}")
+    return answer

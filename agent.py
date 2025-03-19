@@ -4,6 +4,7 @@ import re
 import json
 from uuid import uuid4
 from typing import Optional, List
+import time
 
 from database import ConversationMemory
 from agenttools import search_catechism
@@ -67,13 +68,13 @@ primary_assistant_prompt = ChatPromptTemplate.from_messages(
         (
             "system",
             "You are Cat, a Catholic, friendly, and kind assistant designed to help users find answers from the Catechism of the Catholic Church. "
-            "You are capable of querying a vector database using the search_catechism tool to retrieve the most relevant information for each query. "
+            "Your goal is to query a vector database using the search_catechism tool to retrieve the most relevant information for each user query. "
             "If the tool call fails, inform the user that you encountered trouble retrieving an answer and do not provide any additional information. "
             "You must not respond to questions about church teaching without directly referencing the Catechism. "
             "You only assist users by querying the Catechism. "
             "Your response to a query should be the content of the tool message verbatim. "
             "Do NOT add any information that is not found in the provided context, and avoid any presumptions. "
-            "Ensure your answer includes both an explanation of what the Catechism says (with direct quotes) and the corresponding citations. "
+            "Ensure your answer includes both an explanation of what the Catechism says with direct quotes and the corresponding citations. "
             "Reply only in English using a 6th grade reading level. "
             "For more detailed inquiries, advise the user to speak with their local priest."
         ),
@@ -127,7 +128,7 @@ def main():
     
     print("Interactive mode. Type 'quit', 'exit', or 'q' to stop.")
     while True:
-        # initiate the database memory
+        """# initiate the database memory
         db_memory = ConversationMemory() 
 
         # find the history if there is any
@@ -135,19 +136,20 @@ def main():
         if conversation is None:
         # No existing conversation: create a new record with both fields empty.
             db_memory.create_conversation(conversation_id, summary="", last_user_input="")
-            conversation = {"summary": "", "last_user_input": "", "detailed_history": ""}
+            conversation = {"summary": "", "last_user_input": "", "detailed_history": ""}"""
 
         user_input = input("User: ")
+        user_input_start = time.time()
         if user_input.lower() in ["quit", "exit", "q"]:
             print("Exiting. Goodbye!")
             break
 
         messages = []
 
-        if conversation.get("summary"):
+        """if conversation.get("summary"):
             messages.append(
                 AIMessage(content=f"Conversation summary so far: {conversation['summary']}")
-            )
+            )"""
 
         human_msg = HumanMessage(user_input)
         messages.append(human_msg)
@@ -165,20 +167,36 @@ def main():
                     else:
                         continue
                     tool_msg = selected_tool.invoke(tool_call)
+                    print(f"\n\nTOOL MESSAGE: {tool_msg}\n\n")
                     messages.append(tool_msg)
                 except Exception as tool_error:
                     return f"An error occurred while processing the tool: {tool_error}. Please contact support."
             
             # insert an additional prompt here to get the agent to provide a better answer given the context of the tool message
+            response_start = time.time()
             response = llm_with_tools.invoke(messages, config={"prompt": "Answer the query utilizing the Catechism context retrieved from the database."
                 " Your answer should be written in common language at a 7th grade reading level so that general audiences can understand while maintaining the semantic meaning of the context."
                 " Do NOT add any information that you do not find in the provided context."
                 " Your response should only be based on the context and should not include presumptions."
                 " Your responses to questions MUST include both an explanation of what the Catechism says while using direct quotes and the citations to support your explanation."})
-        
-        print(f"\nAgent: {response.content}\n")
+            response_end = time.time()
+            messages.append(response)
 
-        previous_summary = conversation.get("summary", "")
+            #? this is supposedly capable of streaming the response but it errors despite being directly from langgraph...debug later
+            """print("Agent:")
+            for message_chunk in graph.stream(
+                input={"messages":messages},
+                stream_mode="messages"
+            ):
+                if message_chunk.content:
+                    print(message_chunk.content, flush=True)"""
+        #print(f"\nMESSAGES: {messages}")
+        print(f"\nTime for agent to respond: {response_end - response_start:.2f}")
+        print(f"\nAgent: {response.content}\nCitations:")
+        agent_output_end = time.time()
+        print(f"\n TOTAL RUNTIME FROM INPUT TO OUTPUT = {agent_output_end - user_input_start:.2f}")
+
+        """previous_summary = conversation.get("summary", "")
         new_summary = generate_summary(previous_summary, user_input, response.content)
         
         # Update detailed_history: append the full exchange (consider truncating if too long).
@@ -192,9 +210,39 @@ def main():
             summary=new_summary,
             last_user_input=user_input,
             detailed_history=new_history
-        )
+        )"""
+
+def run_agent(user_input: str) -> str:
+    messages = []
+    human_msg = HumanMessage(user_input)
+    messages.append(human_msg)
+
+    response = assistant_runnable.invoke({"messages": messages})
+    messages.append(response) #! note: this step is required because it ensures the agent uses the tool
 
 
+    while response.additional_kwargs.get("tool_calls"):
+        for tool_call in response.tool_calls:
+            try:
+                tool_name = tool_call["name"].lower()
+                if tool_name in ["search_catechism"]:
+                    selected_tool = {"search_catechism": search_catechism}[tool_name]
+                else:
+                    continue
+                tool_msg = selected_tool.invoke(tool_call)
+                messages.append(tool_msg)
+            except Exception as tool_error:
+                return f"An error occurred while processing the tool: {tool_error}. Please contact support."
+        
+        # insert an additional prompt here to get the agent to provide a better answer given the context of the tool message
+        response = llm_with_tools.invoke(messages, config={"prompt": "Answer the query utilizing the Catechism context retrieved from the database."
+            " Your answer should be written in common language at a 7th grade reading level so that general audiences can understand while maintaining the semantic meaning of the context."
+            " Do NOT add any information that you do not find in the provided context."
+            " Your response should only be based on the context and should not include presumptions."
+            " Your responses to questions MUST include both an explanation of what the Catechism says while using direct quotes and the citations to support your explanation."})
+        messages.append(response)
+
+    return response.content
 
 if __name__ == "__main__":
     main()
