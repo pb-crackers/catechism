@@ -49,7 +49,7 @@ def create_tool_node_with_fallback(tools: list) -> dict:
 # instantiate the LLM and bind tools
 load_dotenv()
 api_key = os.getenv("OPENAI_API_KEY")
-llm = ChatOpenAI(model="o3-mini", temperature=1)
+llm = ChatOpenAI(model="gpt-4o-mini", temperature=0.2)
 llm_with_tools = llm.bind_tools(tools)
 
 
@@ -213,12 +213,13 @@ def main():
         )"""
 
 def run_agent(user_input: str) -> str:
+    start = time.time()
     messages = []
     human_msg = HumanMessage(user_input)
     messages.append(human_msg)
 
     response = assistant_runnable.invoke({"messages": messages})
-    messages.append(response) #! note: this step is required because it ensures the agent uses the tool
+    messages.append(response)
 
 
     while response.additional_kwargs.get("tool_calls"):
@@ -241,7 +242,8 @@ def run_agent(user_input: str) -> str:
             " Your response should only be based on the context and should not include presumptions."
             " Your responses to questions MUST include both an explanation of what the Catechism says while using direct quotes and the citations to support your explanation."})
         messages.append(response)
-
+    end = time.time()
+    print(f"Total Run Time: {end - start:.2f}")
     return response.content
 
 if __name__ == "__main__":

@@ -20,7 +20,7 @@ supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 # Initialize the open AI client
 open_ai_client = OpenAI(api_key=OPENAI_API_KEY)
 
-llm = ChatOpenAI(model="o3-mini", temperature=1)
+llm = ChatOpenAI(model="gpt-4o-mini", temperature=0.2)
 
 #? trying to define a class to structure the output more for the response
 class CatechismOutput(BaseModel):
@@ -43,7 +43,7 @@ def search_catechism(input_text: str) -> str:
         let's rewrite the input using an LLM that will think with RAG in mind to improve our semantic search results.
         """
         try:
-            llm = ChatOpenAI(model="o3-mini", temperature=1)
+            llm = ChatOpenAI(model="gpt-4o-mini", temperature=1)
             prompt_template = PromptTemplate(
                 input_variables=['input_text'],
                 template="""
@@ -148,7 +148,7 @@ def search_catechism(input_text: str) -> str:
         except Exception as e:
             print(f"Error answering the question with the llm: {e}")
             return []
-    #! this takes about 4 seconds
+    
     """llm_reword_start = time.time()
     llm_question = improve_question(input_text)
     llm_reword_end = time.time()
@@ -179,7 +179,7 @@ def search_catechism(input_text: str) -> str:
     if not formatted:
         print("Failed to format the search results of the query.")
         return
-    #! this takes anywhere from 10 seconds to 30.... why
+    #! this takes anywhere from 10 seconds to 30 -> this was due to using the o3-mini model, using the 4o is much quicker
     answer_question_start = time.time()
     answer = answer_question(input_text, formatted)
     answer_question_end = time.time()
